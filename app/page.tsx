@@ -13,11 +13,12 @@ import {
 export default async function Home({
   searchParams,
 }: {
-  searchParams: { code?: string }
+  searchParams: Promise<{ code?: string }>
 }) {
   // Google OAuth 콜백 처리
-  if (searchParams.code) {
-    redirect(`/api/auth/callback?code=${searchParams.code}`)
+  const params = await searchParams
+  if (params.code) {
+    redirect(`/api/auth/callback?code=${params.code}`)
   }
 
   return (
