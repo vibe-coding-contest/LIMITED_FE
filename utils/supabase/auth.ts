@@ -336,7 +336,7 @@ export async function signInWithGoogle() {
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
-      redirectTo: `${window.location.origin}/auth/callback`,
+      redirectTo: `${window.location.origin}/api/auth/callback`,
       queryParams: {
         access_type: "offline",
         prompt: "consent",
@@ -345,4 +345,44 @@ export async function signInWithGoogle() {
   })
 
   return { data, error }
+}
+
+/**
+ * Get the authentication provider for the current user
+ *
+ * @returns 'email' | 'google' | null
+ *
+ * @example
+ * ```tsx
+ * 'use client'
+ *
+ * import { getUserAuthProvider } from '@/utils/supabase/auth'
+ *
+ * const authProvider = await getUserAuthProvider()
+ * if (authProvider === 'google') {
+ *   // Hide password change form
+ * }
+ * ```
+ */
+export async function getUserAuthProvider(): Promise<
+  "email" | "google" | null
+> {
+  const supabase = createBrowserClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return null
+  }
+
+  // Check if user signed in with Google OAuth
+  const providers = user.app_metadata.providers as string[] | undefined
+  if (providers && providers.includes("google")) {
+    return "google"
+  }
+
+  // Default to email/password authentication
+  return "email"
 }

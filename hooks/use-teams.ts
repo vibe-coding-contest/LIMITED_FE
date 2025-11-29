@@ -56,8 +56,9 @@ export function useTeams(userId?: string) {
   const createTeam = async (name: string, description?: string) => {
     if (!userId) throw new Error("User ID is required")
 
-    // Get access token for API call
     const supabase = createClient()
+
+    // Get access token
     const {
       data: { session },
     } = await supabase.auth.getSession()
@@ -66,27 +67,71 @@ export function useTeams(userId?: string) {
       throw new Error("No valid session found")
     }
 
-    // Call API to create team
-    const response = await fetch("/api/teams", {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      throw new Error("Supabase environment variables not configured")
+    }
+
+    // Create team using direct fetch to Supabase REST API
+    // POST https://{NEXT_PUBLIC_SUPABASE_URL}/rest/v1/teams
+    const teamResponse = await fetch(`${supabaseUrl}/rest/v1/teams`, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
+        apikey: supabaseAnonKey,
         Authorization: `Bearer ${session.access_token}`,
+        "Content-Type": "application/json",
+        Prefer: "return=representation",
       },
       body: JSON.stringify({
         name,
-        description: description || undefined,
+        description: description || null,
+        owner_id: userId,
       }),
     })
 
-    if (!response.ok) {
-      const errorData = await response.json()
-      throw new Error(errorData.error || "Failed to create team")
+    if (!teamResponse.ok) {
+      const error = await teamResponse.json()
+      throw new Error(error.message || "Failed to create team")
     }
 
-    const teamWithRole: TeamWithRole = await response.json()
+    const [team] = await teamResponse.json()
 
-    // Update local state
+    // Add creator as team owner
+    // POST https://{NEXT_PUBLIC_SUPABASE_URL}/rest/v1/team_members
+    const memberResponse = await fetch(`${supabaseUrl}/rest/v1/team_members`, {
+      method: "POST",
+      headers: {
+        apikey: supabaseAnonKey,
+        Authorization: `Bearer ${session.access_token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        team_id: team.id,
+        user_id: userId,
+        role: "owner",
+      }),
+    })
+
+    if (!memberResponse.ok) {
+      // Rollback team creation if adding member fails
+      await fetch(`${supabaseUrl}/rest/v1/teams?id=eq.${team.id}`, {
+        method: "DELETE",
+        headers: {
+          apikey: supabaseAnonKey,
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      })
+      const error = await memberResponse.json()
+      throw new Error(error.message || "Failed to add team member")
+    }
+
+    // Add team with role to state
+    const teamWithRole: TeamWithRole = {
+      ...team,
+      role: "owner",
+    }
     setTeams((prev) => [...prev, teamWithRole])
     return teamWithRole
   }
