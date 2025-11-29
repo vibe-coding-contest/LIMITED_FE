@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { redirect } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import {
   Sparkles,
@@ -9,7 +10,16 @@ import {
   BarChart3,
 } from "lucide-react"
 
-export default async function Home() {
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: { code?: string }
+}) {
+  // Google OAuth 콜백 처리
+  if (searchParams.code) {
+    redirect(`/api/auth/callback?code=${searchParams.code}`)
+  }
+
   return (
     <div className="flex min-h-screen flex-col">
       {/* Header */}

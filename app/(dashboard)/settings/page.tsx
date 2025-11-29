@@ -3,7 +3,11 @@
 import { useState, useEffect } from "react"
 import { User } from "@supabase/supabase-js"
 import { createClient } from "@/lib/supabase/client"
-import { changePassword, deleteAccount } from "@/utils/supabase/auth"
+import {
+  changePassword,
+  deleteAccount,
+  getUserAuthProvider,
+} from "@/utils/supabase/auth"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -70,10 +74,8 @@ export default function SettingsPage() {
       setUser(user)
 
       // Check if user signed up with OAuth
-      // OAuth users don't have password, they use app_metadata.provider
-      const providers = user.app_metadata?.providers || []
-      const isOAuth = providers.includes("google") && !user.email?.includes("@")
-      setIsOAuthUser(isOAuth)
+      const authProvider = await getUserAuthProvider()
+      setIsOAuthUser(authProvider === "google")
     } catch (error) {
       console.error("Error loading user:", error)
       toast({
